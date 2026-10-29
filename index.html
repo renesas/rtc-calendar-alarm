@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>README</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+</style>
+  <style type="text/css">:root {
+--brand: #2b0a8c;
+--accent: #e6007e;
+--ink: #1f2430;
+--muted: #667085;
+--line: #e4e7ec;
+--surface: #f7f7fb;
+}
+* {
+box-sizing: border-box;
+}
+html {
+scroll-behavior: smooth;
+}
+body {
+margin: 0 auto;
+max-width: 1120px;
+padding: 50px;
+color: var(--ink);
+background: #ffffff;
+font-family: "Segoe UI", Arial, sans-serif;
+line-height: 1.65;
+}
+a {
+color: var(--brand);
+}
+a:hover {
+color: var(--accent);
+}
+h1 {
+margin-top: 2.7rem;
+padding-bottom: 0.35rem;
+border-bottom: 2px solid var(--line);
+}
+h2 {
+margin-top: 2.4rem;
+padding-bottom: 0.3rem;
+border-bottom: 1px solid var(--line);
+}
+h3,
+h4,
+h5,
+h6 {
+margin-top: 2rem;
+}
+img {
+display: block;
+max-width: 100%;
+height: auto;
+margin: 1rem auto 0.35rem;
+}
+table {
+width: 100%;
+border-collapse: collapse;
+margin: 1.25rem 0;
+}
+th,
+td {
+border: 1px solid var(--line);
+padding: 0.7rem;
+vertical-align: top;
+}
+th {
+background: var(--surface);
+text-align: left;
+}
+blockquote {
+margin: 1.2rem 0;
+padding: 0.7rem 1rem;
+border-left: 4px solid var(--brand);
+background: var(--surface);
+}
+code {
+font-family: Consolas, "Courier New", monospace;
+}
+pre {
+overflow-x: auto;
+padding: 1rem;
+border-radius: 8px;
+background: var(--surface);
+}
+
+body > h1:first-of-type {
+margin: -50px calc(50% - 50vw) 3rem;
+padding: 3.5rem max(50px, calc((100vw - 1120px) / 2));
+border: 0;
+background: linear-gradient(135deg, #250777, #3e16a3);
+color: #ffffff;
+font-size: clamp(2rem, 5vw, 3.5rem);
+line-height: 1.1;
+}
+@media (max-width: 640px) {
+body {
+padding: 20px;
+}
+body > h1:first-of-type {
+margin-top: -20px;
+padding: 2.5rem 20px;
+}
+}
+</style>
+</head>
+<body>
+<h1 id="real-time-clock-rtc-software-building-block">Real-Time Clock
+(RTC) Software Building Block</h1>
+<h2 id="overview">Overview</h2>
+<p>This Software Building Block (SBB) demonstrates typical use of the
+Renesas RA RTC HAL module APIs. It initializes the RTC and provides
+operations to set calendar date and time, configure a calendar alarm,
+enable a periodic interrupt, and read the current RTC calendar time.
+When the periodic interrupt is enabled, the on-board LED toggles every
+second. When the calendar alarm occurs, the reference application turns
+the LED on for two seconds.</p>
+<p>This documentation covers only these boards:</p>
+<ul>
+<li>FPB-RA0L1</li>
+<li>FPB-RA2E3</li>
+<li>FPB-RA4E2</li>
+<li>FPB-RA6E2</li>
+<li>FPB-RA8E1</li>
+</ul>
+<h2 id="1-use-case-demonstrated">1. Use Case Demonstrated</h2>
+<p>The SBB demonstrates using the MCU real-time clock for calendar
+timekeeping, calendar alarms, and periodic RTC interrupts.</p>
+<p>The reference application provides four terminal operations:</p>
+<ol type="1">
+<li>Set the RTC calendar date and time.</li>
+<li>Set the RTC calendar alarm.</li>
+<li>Set the RTC periodic interrupt rate and start the periodic
+interrupt.</li>
+<li>Read the current RTC calendar date and time.</li>
+</ol>
+<p>The application accepts calendar date and time in
+<code>DD:MM:YYYY HH:MM:SS</code> format. For the <code>RTC</code>
+peripheral, the alarm input is a seconds value in <code>SS</code>
+format. For <code>RTC_C</code>, the alarm input is hour and minute in
+<code>HH:MM</code> format.</p>
+<p>The RTC supports a 100-year calendar from 2000 through 2099. The
+calendar date and time must be set before the other demonstrated
+operations.</p>
+<h2 id="2-sbb-core-code">2. SBB Core Code</h2>
+<p>The reusable RTC functionality is implemented in
+<code>rtc_ep.c</code> with its public interface in
+<code>rtc_ep.h</code>.</p>
+<h3 id="rtc-initialization">RTC initialization</h3>
+<p><code>rtc_init()</code> opens the FSP-generated RTC instance using
+<code>g_rtc_ctrl</code> and <code>g_rtc_cfg</code>. The source abstracts
+the particular FSP RTC implementation through macros so that the calls
+resolve to either the <code>r_rtc_c</code> or <code>r_rtc</code> driver
+according to the peripheral available on the MCU.</p>
+<h3 id="calendar-date-and-time">Calendar date and time</h3>
+<p><code>set_rtc_calendar_time()</code> converts the supplied
+<code>DD:MM:YYYY HH:MM:SS</code> text into an <code>rtc_time_t</code>
+structure, sets the RTC calendar time, reads the value back, and
+converts the month and year fields to user-readable values.</p>
+<p>For devices using <code>RTC_C</code>, the implementation also
+calculates the day of the week before setting the calendar. The code
+validates the applicable month, day, and year values as part of that
+calculation.</p>
+<p><code>get_rtc_calendar_time()</code> reads the current RTC calendar
+time and adjusts the returned month and year values for display.</p>
+<h3 id="calendar-alarm">Calendar alarm</h3>
+<p><code>set_rtc_calendar_alarm()</code> configures the demonstrated
+recursive alarm. The alarm can only be configured after the calendar
+date and time has been successfully set.</p>
+<ul>
+<li>For <code>RTC_C</code>, the application accepts <code>HH:MM</code>
+and configures the hour and minute alarm values.</li>
+<li>For <code>RTC</code>, the application accepts <code>SS</code> and
+enables the seconds match field.</li>
+</ul>
+<h3 id="periodic-interrupt">Periodic interrupt</h3>
+<p><code>set_rtc_periodic_rate()</code> configures the RTC periodic
+interrupt for <code>RTC_PERIODIC_IRQ_SELECT_1_SECOND</code>.</p>
+<p>The <code>rtc_callback()</code> callback distinguishes between alarm
+and periodic RTC events and sets <code>g_alarm_irq_flag</code> or
+<code>g_periodic_irq_flag</code>. The reference application processes
+those flags outside the callback.</p>
+<h3 id="led-support">LED support</h3>
+<p><code>led_level_toggle()</code> reads and toggles the first BSP LED.
+<code>led_level_set()</code> explicitly sets its output level. These
+functions use the FSP I/O port interface and BSP LED information.</p>
+<h3 id="deinitialization">Deinitialization</h3>
+<p><code>rtc_deinit()</code> closes an opened RTC instance through the
+appropriate RTC driver abstraction.</p>
+<h2 id="3-reusable-sbb-code-vs-demoreference-application-code">3.
+Reusable SBB Code vs. Demo/Reference Application Code</h2>
+<h3 id="reusable-sbb-code">Reusable SBB code</h3>
+<p>The RTC implementation and interface are contained in:</p>
+<ul>
+<li><code>rtc_ep.c</code></li>
+<li><code>rtc_ep.h</code></li>
+</ul>
+<p>These files contain RTC initialization, calendar-time handling, alarm
+configuration, periodic interrupt configuration, RTC callback
+processing, LED helper functions, and RTC deinitialization.</p>
+<p>The implementation is coupled to FSP-generated configuration and BSP
+resources through <code>hal_data.h</code>, <code>g_rtc_ctrl</code>,
+<code>g_rtc_cfg</code>, <code>g_ioport_ctrl</code>, and
+<code>g_bsp_leds</code>.</p>
+<h3 id="demoreference-application-code">Demo/reference application
+code</h3>
+<p>The terminal-oriented reference application is contained in:</p>
+<ul>
+<li><code>rtc_example_app.c</code></li>
+<li><code>rtc_example_app.h</code></li>
+</ul>
+<p><code>rtc_example_app_run()</code> is the single
+reference-application entry point. It initializes the UART console,
+obtains and prints the FSP version, initializes the RTC, presents the
+menu, dispatches user selections, and processes alarm and
+periodic-interrupt flags.</p>
+<p>The following are reference-application concerns rather than RTC core
+functionality:</p>
+<ul>
+<li>Terminal menu and prompts</li>
+<li>UART-console initialization and polling</li>
+<li>Parsing menu selections</li>
+<li>Reading text with <code>fgets()</code></li>
+<li>Printing RTC values and status messages</li>
+<li>Turning the LED on for two seconds after an alarm</li>
+<li>Error reporting and breakpoint-based error handling</li>
+</ul>
+<h2 id="4-public-functions-to-review-first">4. Public Functions to
+Review First</h2>
+<p>Start with the following functions when understanding or integrating
+the SBB:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rtc_init()</code></td>
+<td>Opens the configured RTC instance.</td>
+</tr>
+<tr>
+<td><code>set_rtc_calendar_time()</code></td>
+<td>Converts, sets, and reads back the calendar date and time.</td>
+</tr>
+<tr>
+<td><code>get_rtc_calendar_time()</code></td>
+<td>Reads the current RTC calendar date and time.</td>
+</tr>
+<tr>
+<td><code>set_rtc_calendar_alarm()</code></td>
+<td>Configures the demonstrated RTC calendar alarm.</td>
+</tr>
+<tr>
+<td><code>set_rtc_periodic_rate()</code></td>
+<td>Configures the one-second periodic RTC interrupt.</td>
+</tr>
+<tr>
+<td><code>rtc_callback()</code></td>
+<td>Records alarm and periodic RTC events for application
+processing.</td>
+</tr>
+<tr>
+<td><code>rtc_deinit()</code></td>
+<td>Closes the RTC instance.</td>
+</tr>
+<tr>
+<td><code>rtc_example_app_run()</code></td>
+<td>Shows how the reference application assembles and exercises the
+SBB.</td>
+</tr>
+</tbody>
+</table>
+<p>The LED helper functions <code>led_level_toggle()</code> and
+<code>led_level_set()</code> show how the reference application provides
+visual indication of RTC events.</p>
+<h2 id="5-reference-board-configuration-assumptions">5. Reference Board
+Configuration Assumptions</h2>
+<h3 id="supported-boards-covered-by-this-document">Supported boards
+covered by this document</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Board</th>
+<th>Board-specific setup documented by the supplied README</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FPB-RA0L1</td>
+<td>Place jumper <code>J9</code> on pins <code>1-2</code> to use the
+on-board debug functionality.</td>
+</tr>
+<tr>
+<td>FPB-RA2E3</td>
+<td>Close <code>E25</code>, <code>E28</code>, <code>E46</code>, and
+<code>E47</code> to use J-Link OB VCOM for the UART serial
+terminal.</td>
+</tr>
+<tr>
+<td>FPB-RA4E2</td>
+<td>No additional board-specific connection is stated in the supplied
+README.</td>
+</tr>
+<tr>
+<td>FPB-RA6E2</td>
+<td>No additional board-specific connection is stated in the supplied
+README.</td>
+</tr>
+<tr>
+<td>FPB-RA8E1</td>
+<td>Open jumpers <code>J6</code> and <code>J9</code> to use the on-board
+debug functionality.</td>
+</tr>
+</tbody>
+</table>
+<p>A Renesas RA board and a USB cable appropriate for that board are
+required. The USB debug port is connected to the PC for programming and
+debugging.</p>
+<h3 id="serial-terminal-configuration">Serial terminal
+configuration</h3>
+<p>The reference application uses a serial terminal with the settings
+documented in the supplied README:</p>
+<ul>
+<li>Port: J-Link On-Board provided port</li>
+<li>Speed: <code>115200</code></li>
+<li>Data: <code>8 bit</code></li>
+<li>Parity: <code>none</code></li>
+<li>Stop bits: <code>1 bit</code></li>
+<li>Flow control: <code>none</code></li>
+<li>Receive new-line: <code>CR</code></li>
+<li>Transmit new-line: <code>CR</code></li>
+<li>Local echo: enabled</li>
+</ul>
+<h3 id="input-assumptions">Input assumptions</h3>
+<p>The supplied README states that:</p>
+<ul>
+<li>User-entered data is expected not to exceed 15 bytes.</li>
+<li>Calendar input uses <code>DD:MM:YYYY HH:MM:SS</code>.</li>
+<li>The RTC calendar covers years 2000 through 2099.</li>
+<li>Calendar date and time must be set before the other demonstrated
+operations.</li>
+<li><code>RTC</code> alarm input uses <code>SS</code>.</li>
+<li><code>RTC_C</code> alarm input uses <code>HH:MM</code>.</li>
+<li>Operation is not guaranteed for unsupported input types or incorrect
+terminal input formats.</li>
+<li>For <code>RTC_C</code>, alarm and periodic interrupts are retained
+after pressing the reset pin.</li>
+</ul>
+<h2 id="6-what-must-be-changed-when-porting">6. What Must Be Changed
+When Porting</h2>
+<p>When moving this SBB to a different board or project, review the
+following integration points.</p>
+<h3 id="rtc-peripheral-and-fsp-configuration">RTC peripheral and FSP
+configuration</h3>
+<p>The source selects between <code>r_rtc_c</code> and
+<code>r_rtc</code> using <code>BSP_PERIPHERAL_RTC_C_PRESENT</code> and
+<code>BSP_PERIPHERAL_RTC_PRESENT</code>. The generated RTC instance is
+accessed through <code>g_rtc_ctrl</code> and <code>g_rtc_cfg</code>.</p>
+<p>The target project must therefore provide the applicable RTC
+peripheral and FSP-generated RTC configuration expected by the SBB.</p>
+<h3 id="board-and-led-resources">Board and LED resources</h3>
+<p>The example uses the first BSP LED through
+<code>g_bsp_leds.p_leds[0]</code> and controls it through
+<code>g_ioport_ctrl</code>. If the target board uses a different
+indication mechanism, adapt the LED-related reference behavior
+accordingly.</p>
+<h3 id="rtc-timing-and-alarm-behavior">RTC timing and alarm
+behavior</h3>
+<p>The demonstrated periodic interrupt is explicitly configured for one
+second through <code>RTC_PERIODIC_IRQ_SELECT_1_SECOND</code>. Alarm
+behavior differs between the two RTC peripheral implementations:
+<code>RTC</code> uses a seconds match in this example, while
+<code>RTC_C</code> uses hour and minute values.</p>
+<p>Review these assumptions if the product requires different periodic
+timing or alarm matching.</p>
+<h3 id="calendar-representation">Calendar representation</h3>
+<p>The SBB accepts date/time text in <code>DD:MM:YYYY HH:MM:SS</code>
+format. Internally, the month and year are adjusted to the
+representation expected by <code>rtc_time_t</code>. The
+<code>RTC_C</code> path calculates the weekday, and the implementation
+is designed for the RTC calendar range from 2000 through 2099.</p>
+<h3 id="clock-configuration">Clock configuration</h3>
+<p>The supplied SBB source uses the FSP RTC configuration but does not
+specify clock-tree configuration values. Verify the RTC clock
+configuration in the target FSP project when integrating the SBB.</p>
+<h3 id="memory-and-task-priorities">Memory and task priorities</h3>
+<p>The supplied application does not specify an RTOS task-priority model
+or explicit heap/stack requirements. The reference application executes
+an infinite polling loop while RTC events are reported to
+<code>rtc_callback()</code> and communicated through volatile flags.</p>
+<h3 id="console-integration">Console integration</h3>
+<p>The reference application includes
+<code>console/uart_console.h</code> and uses the UART console for its
+user interface. If the target product does not use this console
+interface, replace or remove the terminal-oriented reference-application
+layer while retaining the required RTC functionality.</p>
+<h2 id="7-dependencies">7. Dependencies</h2>
+<h3 id="fsp-and-hal">FSP and HAL</h3>
+<p>The SBB uses FSP-generated RTC and I/O resources through
+<code>hal_data.h</code>.</p>
+<p>Depending on the MCU RTC peripheral, the abstraction in
+<code>rtc_ep.h</code> maps operations to either:</p>
+<ul>
+<li><code>R_RTC_C_Open()</code> / <code>R_RTC_Open()</code></li>
+<li><code>R_RTC_C_CalendarTimeSet()</code> /
+<code>R_RTC_CalendarTimeSet()</code></li>
+<li><code>R_RTC_C_CalendarTimeGet()</code> /
+<code>R_RTC_CalendarTimeGet()</code></li>
+<li><code>R_RTC_C_CalendarAlarmSet()</code> /
+<code>R_RTC_CalendarAlarmSet()</code></li>
+<li><code>R_RTC_C_CalendarAlarmGet()</code> /
+<code>R_RTC_CalendarAlarmGet()</code></li>
+<li><code>R_RTC_C_PeriodicIrqRateSet()</code> /
+<code>R_RTC_PeriodicIrqRateSet()</code></li>
+<li><code>R_RTC_C_Close()</code> / <code>R_RTC_Close()</code></li>
+</ul>
+<p>The LED helpers additionally use:</p>
+<ul>
+<li><code>R_IOPORT_PinRead()</code></li>
+<li><code>R_IOPORT_PinWrite()</code></li>
+<li><code>g_ioport_ctrl</code></li>
+<li><code>g_bsp_leds</code></li>
+</ul>
+<h3 id="reference-application-dependencies">Reference-application
+dependencies</h3>
+<p>The reference application additionally uses:</p>
+<ul>
+<li><code>console/uart_console.h</code></li>
+<li><code>uart_console_init()</code></li>
+<li><code>uart_console_has_char()</code></li>
+<li><code>uart_console_flush()</code></li>
+<li><code>printf()</code></li>
+<li><code>fgets()</code></li>
+<li><code>atoi()</code></li>
+<li><code>R_FSP_VersionGet()</code></li>
+<li><code>R_BSP_SoftwareDelay()</code></li>
+</ul>
+<h3 id="hardware-resources">Hardware resources</h3>
+<p>The demonstrated application uses:</p>
+<ul>
+<li>MCU RTC or RTC_C peripheral</li>
+<li>RTC alarm interrupt</li>
+<li>RTC periodic interrupt</li>
+<li>First BSP LED and its I/O port resource</li>
+<li>UART/serial console for the reference user interface</li>
+<li>Board debug and J-Link On-Board resources as applicable to the
+selected reference board</li>
+</ul>
+<h2 id="8-demonstrated-behavior-and-performance">8. Demonstrated
+Behavior and Performance</h2>
+<p>The supplied project demonstrates the following observable
+behavior:</p>
+<ul>
+<li>The user can set the RTC calendar date and time.</li>
+<li>The application can read and display the current RTC calendar date
+and time.</li>
+<li>A calendar alarm can be configured after calendar date and time have
+been set.</li>
+<li>For <code>RTC</code>, the demonstrated recursive alarm matches a
+user-selected seconds value.</li>
+<li>For <code>RTC_C</code>, the demonstrated recursive alarm uses a
+user-selected hour and minute.</li>
+<li>When an alarm interrupt occurs, the application reports the current
+date/time and turns the on-board LED on for two seconds before turning
+it off.</li>
+<li>The RTC periodic interrupt is configured for a one-second rate.</li>
+<li>Each processed periodic interrupt causes the reference application
+to toggle the on-board LED.</li>
+<li>For <code>RTC_C</code>, the supplied README states that alarm and
+periodic interrupts are retained after pressing the reset pin.</li>
+</ul>
+<p>No other measured performance figures are supplied in these
+files.</p>
+<h2 id="9-file-modification-guidance">9. File Modification Guidance</h2>
+<h3 id="sbb-implementation-files">SBB implementation files</h3>
+<ul>
+<li><code>rtc_ep.c</code></li>
+<li><code>rtc_ep.h</code></li>
+</ul>
+<p>These contain the RTC functionality and its public interface.
+Product-specific modifications to these files create a local variant of
+the SBB that must be considered when adopting a later SBB version.</p>
+<h3 id="demoreference-application-files">Demo/reference application
+files</h3>
+<ul>
+<li><code>rtc_example_app.c</code></li>
+<li><code>rtc_example_app.h</code></li>
+</ul>
+<p>These implement the terminal user interface and demonstration
+workflow. They show one way to exercise the SBB and can be adapted or
+replaced when integrating the RTC functionality into a product
+application.</p>
+<h3 id="fsp-generated-configuration">FSP-generated configuration</h3>
+<p>The SBB depends on generated declarations and instances supplied
+through <code>hal_data.h</code>, including <code>g_rtc_ctrl</code>,
+<code>g_rtc_cfg</code>, and <code>g_ioport_ctrl</code>. The supplied
+files do not classify the complete set of generated project files.
+Configuration belonging to the FSP project should be maintained through
+the project’s FSP configuration flow rather than treated as SBB
+application source.</p>
+<h2 id="10-adopting-a-newer-sbb-release-after-local-modifications">10.
+Adopting a Newer SBB Release After Local Modifications</h2>
+<p>The supplied files do not define an automatic source-upgrade or merge
+mechanism for locally modified SBB code.</p>
+<p>To keep future SBB updates manageable, keep product-specific
+application behavior outside <code>rtc_ep.c</code> and
+<code>rtc_ep.h</code> where practical. The provided separation between
+the RTC implementation and <code>rtc_example_app.c</code> gives the
+product application a natural integration boundary.</p>
+<p>If the supplied SBB source itself is modified, record those changes.
+When adopting a newer SBB release, compare the updated RTC
+implementation and its FSP configuration assumptions with the locally
+used version, carry forward only the product-specific changes that
+remain necessary, and revalidate the required RTC calendar, alarm,
+periodic-interrupt, and board-indication behavior.</p>
+<h2 id="reference-application-operation">Reference Application
+Operation</h2>
+<ol type="1">
+<li>Prepare the selected FPB board according to the applicable
+board-specific requirements above.</li>
+<li>Connect the board USB debug port to the PC for programming and
+debugging.</li>
+<li>Open the J-Link On-Board serial port and configure the terminal for
+<code>115200</code>, 8 data bits, no parity, 1 stop bit, no flow
+control, CR receive/transmit newline, and local echo.</li>
+<li>Run the application.</li>
+<li>Select option <code>1</code> and enter the RTC date/time in
+<code>DD:MM:YYYY HH:MM:SS</code> format.</li>
+<li>Use option <code>2</code> to configure a calendar alarm. Enter
+<code>SS</code> for <code>RTC</code> or <code>HH:MM</code> for
+<code>RTC_C</code>.</li>
+<li>Use option <code>3</code> to configure the one-second periodic RTC
+interrupt and observe the LED toggling.</li>
+<li>Use option <code>4</code> to read and display the current RTC date
+and time.</li>
+</ol>
+<h2 id="source-file-map">Source File Map</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rtc_ep.c</code></td>
+<td>RTC initialization, calendar processing, alarm configuration,
+periodic IRQ configuration, RTC callback, LED helpers, and RTC
+deinitialization.</td>
+</tr>
+<tr>
+<td><code>rtc_ep.h</code></td>
+<td>SBB constants, RTC/RTC_C abstraction, shared flags, and public RTC
+function declarations.</td>
+</tr>
+<tr>
+<td><code>rtc_example_app.c</code></td>
+<td>Demo/reference application orchestration, UART menu handling,
+RTC-event processing, display behavior, and error handling.</td>
+</tr>
+<tr>
+<td><code>rtc_example_app.h</code></td>
+<td>Reference-application interface, terminal banner/menu strings, and
+<code>rtc_example_app_run()</code> declaration.</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

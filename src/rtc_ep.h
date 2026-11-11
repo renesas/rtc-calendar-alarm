@@ -83,7 +83,7 @@
 #define R_RTC_CALENDAR_ALARM_GET(ctrl, alarm)       (R_RTC_C_CalendarAlarmGet((ctrl), (alarm)))
 #define R_RTC_PERIODIC_IRQ_RATE_SET(ctrl, rate)     (R_RTC_C_PeriodicIrqRateSet((ctrl), (rate)))
 #define R_RTC_CLOSE(ctrl)                           (R_RTC_C_Close(ctrl))
-#elif (BSP_PERIPHERAL_RTC_PRESENT)
+#elif (BSP_PERIPHERAL_RTC_PRESENT) || (BSP_PERIPHERAL_IRTC_PRESENT)
 #define MODULE_NAME                                 "r_rtc"
 #define MODULE_PADDING                              "            "
 #define R_RTC_OPEN(ctrl, cfg)                       (R_RTC_Open((ctrl), (cfg)))
@@ -93,7 +93,7 @@
 #define R_RTC_CALENDAR_ALARM_GET(ctrl, alarm)       (R_RTC_CalendarAlarmGet((ctrl), (alarm)))
 #define R_RTC_PERIODIC_IRQ_RATE_SET(ctrl, rate)     (R_RTC_PeriodicIrqRateSet((ctrl), (rate)))
 #define R_RTC_CLOSE(ctrl)                           (R_RTC_Close(ctrl))
-#endif /* BSP_PERIPHERAL_RTC_C_PRESENT || BSP_PERIPHERAL_RTC_PRESENT */
+#endif /* BSP_PERIPHERAL_RTC_C_PRESENT || BSP_PERIPHERAL_RTC_PRESENT || BSP_PERIPHERAL_IRTC_PRESENT */
 
 /* Extern variables - Defined in rtc_ep.c */
 extern volatile bool g_alarm_irq_flag;
